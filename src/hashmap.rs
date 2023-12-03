@@ -41,20 +41,20 @@ impl HashMap<String, i32> {
     pub fn set(&mut self, key: String, value: i32) {
         let bucket_count = self.buckets.len();
         let idx = (self.hash)(&key) % bucket_count;
-        let value = Some(Box::from(HashMapItem::from(key, value, None)));
 
-        let Some(mut finger) = self.buckets[idx].as_mut() else {
-            self.buckets[idx] = value;
-            return;
-        };
-
-        // let mut finger = self.buckets[idx].as_ref();
-        while finger.next.as_ref().is_none() {
-            // Is there a way to *not* do `as_mut` here?
-            finger = finger.next.as_mut().unwrap();
+        let mut finger = &mut self.buckets[idx];
+        loop {
+            match finger {
+                None => break,
+                Some(x) if x.key == key => break,
+                Some(x) => finger = &mut x.next,
+            };
         }
 
-        let value = Some(Box::from(HashMapItem::from(key, value, None)));
-        finger.next = value;
+        let value = match finger {
+            None => HashMapItem::from(key, value, None),
+            Some(x) => HashMapItem::from(key, value, x.next.to_owned()),
+        };
+        *finger = Some(Box::from(value));
     }
 }
