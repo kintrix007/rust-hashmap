@@ -1,20 +1,21 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone)]
 struct HashMapItem<K, V> {
     key: K,
     value: V,
     next: Option<Box<HashMapItem<K, V>>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct HashMap<K, V> {
     size: usize,
     buckets: Box<[Option<Box<HashMapItem<K, V>>>]>,
     // hasher: DefaultHasher,
 }
 
+#[derive(Debug)]
 pub struct HashMapIterator<'a, K, V> {
     hashmap: &'a HashMap<K, V>,
     bucket_idx: usize,
