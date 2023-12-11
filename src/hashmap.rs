@@ -12,6 +12,7 @@ struct HashMapItem<K, V> {
 pub struct HashMap<K, V> {
     size: usize,
     buckets: Box<[Option<Box<HashMapItem<K, V>>>]>,
+    hasher: DefaultHasher,
 }
 
 pub struct HashMapIterator<'a, K, V> {
@@ -64,6 +65,7 @@ impl<K, V> HashMap<K, V> {
         HashMap {
             size: 0,
             buckets: (0..size).map(|_| None).collect(),
+            hasher: DefaultHasher::new(),
         }
     }
 
@@ -90,10 +92,9 @@ impl<K, V> HashMap<K, V> {
 }
 
 impl<K: PartialEq + Hash + Clone, V: Clone> HashMap<K, V> {
-    fn hash(&self, key: &K) -> usize {
-        let mut hasher = DefaultHasher::new();
-        key.hash(&mut hasher);
-        hasher.finish() as usize
+    fn hash(&mut self, key: &K) -> usize {
+        key.hash(&mut self.hasher);
+        self.hasher.finish() as usize
     }
 
     fn get_mut_finger(&mut self, key: &K) -> &mut Option<Box<HashMapItem<K, V>>> {
@@ -175,9 +176,18 @@ impl<K: PartialEq + Hash + Clone, V: Clone> HashMap<K, V> {
         val
     }
 
-    pub fn rehash<T: Hasher>(&mut self, hasher: T) {
-        let _ = hasher;
-        todo!();
+    pub fn rehash(&mut self, hasher: DefaultHasher) {
+        let old_buckets = self.buckets.clone();
+        self.buckets = (0..self.buckets.len()).map(|_| None).collect();
+        self.hasher = hasher;
+
+        for bucket in old_buckets.iter() {
+            let mut item = bucket.as_ref().map(|x| x.as_ref());
+            while let Some(x) = item {
+                self.set(&x.key, x.value.clone());
+                item = x.next.as_ref().map(|x| x.as_ref());
+            }
+        }
     }
 }
 
@@ -210,6 +220,14 @@ mod tests {
         assert_eq!(map.get(&String::from("bbb")), Some(&20));
         assert_eq!(map.get(&String::from("ccc")), Some(&30));
         assert_eq!(map.get(&String::from("ddd")), Some(&40));
+    }
+
+    #[test]
+    fn get_mut_method_works() {
+        let mut map = super::HashMap::new(5);
+        map.set(&String::from("aaa"), 10);
+        let _ = map.get_mut(&String::from("aaa")).map(|x| *x = 20);
+        assert_eq!(map.get(&String::from("aaa")), Some(&20));
     }
 
     #[test]
