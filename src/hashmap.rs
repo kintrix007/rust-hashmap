@@ -50,12 +50,15 @@ impl<'a, K, V> Iterator for HashMapIterator<'a, K, V> {
 }
 
 impl<K: Clone, V: Clone> HashMapItem<K, V> {
+    /// Creates a new [`HashMapItem<K, V>`].
     pub fn new(key: K, value: V, next: Option<Box<HashMapItem<K, V>>>) -> HashMapItem<K, V> {
         HashMapItem { key, value, next }
     }
 }
 
 impl<K, V> HashMap<K, V> {
+    /// Creates a new [`HashMap<K, V>`] with a given amount of buckets.
+    /// It does not get resized dynamically.
     pub fn new(size: usize) -> HashMap<K, V> {
         HashMap {
             size: 0,
@@ -64,10 +67,12 @@ impl<K, V> HashMap<K, V> {
         }
     }
 
+    /// Returns the amount of items of this [`HashMap<K, V>`].
     pub fn len(&self) -> usize {
         self.size
     }
 
+    /// Returns the iter of this [`HashMap<K, V>`].
     pub fn iter(&self) -> HashMapIterator<K, V> {
         let (idx, first_item) = self
             .buckets
@@ -108,6 +113,18 @@ impl<K: PartialEq + Hash + Clone, V: Clone> HashMap<K, V> {
         finger
     }
 
+    /// Returns a reference to the value corresponding to the key.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use hashmap::HashMap;
+    ///
+    /// let mut map = HashMap::new(10);
+    /// map.set(&String::from("foo"), 1);
+    /// assert_eq!(map.get(String::from("foo")), Some(&1));
+    /// assert_eq!(map.get(String::from("bar")), None);
+    /// ```
     // TODO: Figure out how to take `&self` instead of `&mut self` without
     // copying over the whole body
     pub fn get(&mut self, key: &K) -> Option<&V> {
