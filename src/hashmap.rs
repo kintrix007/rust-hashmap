@@ -49,7 +49,7 @@ impl<'a, K, V> Iterator for HashMapIterator<'a, K, V> {
 }
 
 impl<K: Clone, V: Clone> HashMapItem<K, V> {
-    pub fn from(key: K, value: V, next: Option<Box<HashMapItem<K, V>>>) -> HashMapItem<K, V> {
+    pub fn new(key: K, value: V, next: Option<Box<HashMapItem<K, V>>>) -> HashMapItem<K, V> {
         HashMapItem { key, value, next }
     }
 }
@@ -122,7 +122,7 @@ impl<K: PartialEq + Hash + Clone, V: Clone> HashMap<K, V> {
 
         match finger {
             None => {
-                *finger = Some(Box::from(HashMapItem::from(key.clone(), value, None)));
+                *finger = Some(Box::from(HashMapItem::new(key.clone(), value, None)));
                 self.size += 1;
             }
             Some(x) => x.value = value,
