@@ -12,7 +12,7 @@ struct HashMapItem<K, V> {
 pub struct HashMap<K, V> {
     size: usize,
     buckets: Box<[Option<Box<HashMapItem<K, V>>>]>,
-    hasher: DefaultHasher,
+    // hasher: DefaultHasher,
 }
 
 pub struct HashMapIterator<'a, K, V> {
@@ -59,7 +59,7 @@ impl<K, V> HashMap<K, V> {
         HashMap {
             size: 0,
             buckets: (0..size).map(|_| None).collect(),
-            hasher: DefaultHasher::new(),
+            // hasher: DefaultHasher::new(),
         }
     }
 
@@ -87,8 +87,9 @@ impl<K, V> HashMap<K, V> {
 
 impl<K: PartialEq + Hash + Clone, V: Clone> HashMap<K, V> {
     fn hash(&mut self, key: &K) -> usize {
-        key.hash(&mut self.hasher);
-        self.hasher.finish() as usize
+        let mut hasher = DefaultHasher::new();
+        key.hash(&mut hasher);
+        hasher.finish() as usize
     }
 
     fn get_mut_finger(&mut self, key: &K) -> &mut Option<Box<HashMapItem<K, V>>> {
@@ -170,10 +171,10 @@ impl<K: PartialEq + Hash + Clone, V: Clone> HashMap<K, V> {
         val
     }
 
-    pub fn rehash(&mut self, hasher: DefaultHasher) {
+    pub fn rehash(&mut self, _hasher: DefaultHasher) {
         let old_buckets = self.buckets.clone();
         self.buckets = (0..self.buckets.len()).map(|_| None).collect();
-        self.hasher = hasher;
+        // self.hasher = hasher;
 
         for bucket in old_buckets.iter() {
             let mut item = bucket.as_ref().map(|x| x.as_ref());
