@@ -2,21 +2,54 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
 #[derive(Debug, PartialEq, Clone)]
-struct HashMapItem<K: Clone, V: Clone> {
+struct HashMapItem<K, V> {
     key: K,
     value: V,
     next: Option<Box<HashMapItem<K, V>>>,
 }
 
 #[derive(Debug)]
-pub struct HashMap<K: PartialEq + Hash + Clone, V: Clone> {
+pub struct HashMap<K, V> {
     size: usize,
     buckets: Box<[Option<Box<HashMapItem<K, V>>>]>,
 }
 
-impl<K: PartialEq + Hash + Clone, V: PartialEq + Clone> PartialEq for HashMap<K, V> {
+pub struct HashMapIterator<'a, K, V> {
+    hashmap: &'a HashMap<K, V>,
+    bucket_idx: usize,
+    item: Option<&'a HashMapItem<K, V>>,
+}
+
+impl<K: PartialEq + Clone, V: PartialEq + Clone> PartialEq for HashMap<K, V> {
     fn eq(&self, other: &Self) -> bool {
-        *self.items() == *other.items()
+        todo!();
+    }
+}
+
+impl<'a, K, V> Iterator for HashMapIterator<'a, K, V> {
+    type Item = (&'a K, &'a V);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let current_item = self.item.map(|x| (&x.key, &x.value));
+
+        self.item = self.item.and_then(|x| x.next.as_ref().map(|x| x.as_ref()));
+        if self.item.is_some() {
+            return current_item;
+        }
+
+        let Some(next_idx) = self.hashmap.buckets[self.bucket_idx + 1..]
+            .iter()
+            .position(|x| x.is_some())
+        else {
+            return current_item;
+        };
+
+        self.bucket_idx += next_idx + 1;
+        self.item = self.hashmap.buckets[self.bucket_idx]
+            .as_ref()
+            .map(|x| x.as_ref());
+
+        current_item
     }
 }
 
@@ -26,11 +59,11 @@ impl<K: Clone, V: Clone> HashMapItem<K, V> {
     }
 }
 
-impl<K: PartialEq + Hash + Clone, V: Clone> HashMap<K, V> {
+impl<K, V> HashMap<K, V> {
     pub fn new(size: usize) -> HashMap<K, V> {
         HashMap {
             size: 0,
-            buckets: vec![None; size].into_boxed_slice(),
+            buckets: (0..size).map(|_| None).collect(),
         }
     }
 
@@ -38,6 +71,25 @@ impl<K: PartialEq + Hash + Clone, V: Clone> HashMap<K, V> {
         self.size
     }
 
+    pub fn iter(&self) -> HashMapIterator<K, V> {
+        let (idx, first_item) = self
+            .buckets
+            .iter()
+            .position(|x| x.is_some())
+            .map(|idx| (idx, self.buckets[idx].as_ref().map(|x| x.as_ref())))
+            .unwrap_or((0, None));
+
+        let iterator = HashMapIterator {
+            hashmap: self,
+            bucket_idx: idx,
+            item: first_item,
+        };
+
+        iterator
+    }
+}
+
+impl<K: PartialEq + Hash + Clone, V: Clone> HashMap<K, V> {
     fn hash(&self, key: &K) -> usize {
         let mut hasher = DefaultHasher::new();
         key.hash(&mut hasher);
@@ -123,12 +175,118 @@ impl<K: PartialEq + Hash + Clone, V: Clone> HashMap<K, V> {
         val
     }
 
-    // Instead return an iterator... That would make much more sense
-    pub fn items(&self) -> Vec<(&K, &V)> {
+    pub fn rehash<T: Hasher>(&mut self, hasher: T) {
+        let _ = hasher;
         todo!();
     }
+}
 
-    pub fn rehash(&mut self) {
-        todo!();
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn len_method_works() {
+        let mut map = super::HashMap::new(3);
+        map.set(&String::from("foo"), 1);
+        assert_eq!(map.len(), 1);
+        map.set(&String::from("bar"), 2);
+        assert_eq!(map.len(), 2);
+        map.set(&String::from("baz"), 3);
+        assert_eq!(map.len(), 3);
+        map.set(&String::from("Hello!"), 42);
+        assert_eq!(map.len(), 4);
+        map.remove(&String::from("foo"));
+        assert_eq!(map.len(), 3);
+    }
+
+    #[test]
+    fn set_get_methods_work() {
+        let mut map = super::HashMap::new(10);
+        map.set(&String::from("aaa"), 10);
+        map.set(&String::from("bbb"), 20);
+        map.set(&String::from("ccc"), 30);
+        map.set(&String::from("ddd"), 40);
+
+        assert_eq!(map.get(&String::from("aaa")), Some(&10));
+        assert_eq!(map.get(&String::from("bbb")), Some(&20));
+        assert_eq!(map.get(&String::from("ccc")), Some(&30));
+        assert_eq!(map.get(&String::from("ddd")), Some(&40));
+    }
+
+    #[test]
+    fn remove_method_works() {
+        let mut map = super::HashMap::new(10);
+        map.set(&String::from("aaa"), 10);
+        map.set(&String::from("bbb"), 20);
+        map.set(&String::from("ccc"), 30);
+        map.set(&String::from("ddd"), 40);
+
+        assert_eq!(map.get(&String::from("aaa")), Some(&10));
+        map.remove(&String::from("aaa"));
+        assert_eq!(map.get(&String::from("aaa")), None);
+        assert_eq!(map.get(&String::from("bbb")), Some(&20));
+        map.remove(&String::from("bbb"));
+        assert_eq!(map.get(&String::from("bbb")), None);
+        assert_eq!(map.get(&String::from("ccc")), Some(&30));
+        map.remove(&String::from("ccc"));
+        assert_eq!(map.get(&String::from("ccc")), None);
+        assert_eq!(map.get(&String::from("ddd")), Some(&40));
+        map.remove(&String::from("ddd"));
+        assert_eq!(map.get(&String::from("ddd")), None);
+    }
+
+    #[test]
+    fn rehash_method_works() {
+        let mut map = super::HashMap::new(2);
+        map.set(&String::from("aaa"), 10);
+        map.set(&String::from("bbb"), 20);
+        map.set(&String::from("ccc"), 30);
+        map.set(&String::from("ddd"), 40);
+
+        map.rehash(super::DefaultHasher::new());
+
+        assert_eq!(map.get(&String::from("aaa")), Some(&10));
+        assert_eq!(map.get(&String::from("bbb")), Some(&20));
+        assert_eq!(map.get(&String::from("ccc")), Some(&30));
+        assert_eq!(map.get(&String::from("ddd")), Some(&40));
+    }
+
+    #[test]
+    fn iterator_few_buckets_works() {
+        let mut items = vec![
+            (String::from("foo"), 99),
+            (String::from("bar"), -5),
+            (String::from("baz"), 42),
+        ];
+        items.sort();
+
+        let mut map = super::HashMap::new(2);
+        for (k, v) in items.iter() {
+            map.set(k, *v);
+        }
+        let mut got_items = map.iter().map(|(k, v)| (k.clone(), *v)).collect::<Vec<_>>();
+        got_items.sort();
+
+        assert_eq!(got_items.len(), items.len());
+        assert_eq!(got_items, items);
+    }
+
+    #[test]
+    fn iterator_many_buckets_works() {
+        let mut items = vec![
+            (String::from("foo"), 99),
+            (String::from("bar"), -5),
+            (String::from("baz"), 42),
+        ];
+        items.sort();
+
+        let mut map = super::HashMap::new(10);
+        for (k, v) in items.iter() {
+            map.set(k, *v);
+        }
+        let mut got_items = map.iter().map(|(k, v)| (k.clone(), *v)).collect::<Vec<_>>();
+        got_items.sort();
+
+        assert_eq!(got_items.len(), items.len());
+        assert_eq!(got_items, items);
     }
 }
