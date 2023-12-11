@@ -21,12 +21,6 @@ pub struct HashMapIterator<'a, K, V> {
     item: Option<&'a HashMapItem<K, V>>,
 }
 
-impl<K: PartialEq + Clone, V: PartialEq + Clone> PartialEq for HashMap<K, V> {
-    fn eq(&self, other: &Self) -> bool {
-        todo!();
-    }
-}
-
 impl<'a, K, V> Iterator for HashMapIterator<'a, K, V> {
     type Item = (&'a K, &'a V);
 
